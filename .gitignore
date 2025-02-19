@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+
+# MyPy
+.mypy_cache/
+
+# Docker
+docker-compose.override.yml
+
+# Environment variables
+.env
+
+# Logs
+logs/
+
+# Downloads
+downloads/
+
+# Cookies
+cookies/
+
+# Cache
+cache/
+.cache
+
+# Virtual environment
+venv/
+
+# Configuration
+config/
+
+# Data
+data/
+
