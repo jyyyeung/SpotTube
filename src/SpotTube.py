@@ -6,6 +6,8 @@ import tempfile
 import threading
 import concurrent.futures
 
+from dotenv import load_dotenv
+
 import yt_dlp
 from thefuzz import fuzz
 from ytmusicapi import YTMusic
@@ -30,22 +32,24 @@ class DataHandler:
         )
         self.logger = logging.getLogger()
 
+        load_dotenv()
+
         app_name_text = os.path.basename(__file__).replace(".py", "")
         release_version = os.environ.get("RELEASE_VERSION", "unknown")
-        self.logger.info("*" * 50)
-        self.logger.info("\n%s Version: %s", app_name_text, release_version)
-        self.logger.info("*" * 50)
+        self.logger.warning("%s\n", "*" * 50)
+        self.logger.warning("%s Version: %s", app_name_text, release_version)
+        self.logger.warning("*" * 50)
 
-        self.spotify_client_id = os.environ.get("spotify_client_id", "abc")
-        self.spotify_client_secret = os.environ.get("spotify_client_secret", "123")
-        self.thread_limit = int(os.environ.get("thread_limit", "1"))
-        self.artist_track_selection = os.environ.get("artist_track_selection", "all")
+        self.spotify_client_id = os.environ.get("SPOTIFY_CLIENT_ID", "abc")
+        self.spotify_client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET", "123")
+        self.thread_limit = int(os.environ.get("THREAD_LIMIT", "1"))
+        self.artist_track_selection = os.environ.get("ARTIST_TRACK_SELECTION", "all")
         self.sleep_interval = 0
 
-        self._ffmpeg_location = os.environ.get("ffmpeg_location", "/usr/bin/ffmpeg")
+        self._ffmpeg_location = os.environ.get("FFMPEG_LOCATION", "/usr/bin/ffmpeg")
 
-        self.download_folder = "downloads"
-        self.config_folder = "config"
+        self.download_folder = os.environ.get("DOWNLOADS_FOLDER", "downloads")
+        self.config_folder = os.environ.get("CONFIG_FOLDER", "config")
         if not os.path.exists(self.download_folder):
             os.makedirs(self.download_folder)
         if not os.path.exists(self.config_folder):
