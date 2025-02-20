@@ -1,9 +1,9 @@
-import logging
 import os
 import threading
 from dataclasses import dataclass
 
 from flask_socketio import SocketIO  # type: ignore
+from loguru import logger
 
 from src.config import Config
 from src.downloader import Downloader
@@ -16,7 +16,6 @@ class DataHandler:
     Data handler for the download
     """
 
-    logger: logging.Logger
     percent_completion: int | float
     _stop_monitoring_event: threading.Event
     monitor_active_flag: bool
@@ -24,15 +23,14 @@ class DataHandler:
 
     def __init__(self, downloader: Downloader):
         super().__init__()
-        self.logger = logging.getLogger(__name__)
         self.downloader = downloader
 
-        app_name_text = os.path.basename(__file__).replace(".py", "")
+        app_name_text = os.environ.get("APP_NAME", "SpotTube")
         release_version = os.environ.get("RELEASE_VERSION", "unknown")
 
-        self.logger.warning("%s\n", "*" * 50)
-        self.logger.warning("%s Version: %s", app_name_text, release_version)
-        self.logger.warning("*" * 50)
+        print(f"{'*' * 50}\n")
+        print(f"{app_name_text} Version: {release_version}")
+        print("*" * 50)
 
         self._stop_monitoring_event = threading.Event()
         self._stop_monitoring_event.clear()
@@ -96,10 +94,11 @@ class DataHandler:
         Args:
             socketio (SocketIO): The socketio object
         """
-        download_list = self.downloader.download_list
-        index = self.index
-        status = self.status
+
         while not self.stop_monitoring_event.is_set():
+            index = self.index
+            status = self.status
+            download_list = self.downloader.download_list
             self.percent_completion = (
                 100 * (index / len(download_list)) if download_list else 0
             )
@@ -108,5 +107,6 @@ class DataHandler:
                 "Status": status.value,
                 "Percent_Completion": self.percent_completion,
             }
+            logger.debug(f"Emitted update progress status: {custom_data}")
             socketio.emit("progress_status", custom_data)
             self.stop_monitoring_event.wait(1)

@@ -1,4 +1,3 @@
-import logging
 import os
 import pathlib
 import sys
@@ -7,6 +6,7 @@ import threading
 from dotenv import load_dotenv
 from flask import Flask, render_template
 from flask_socketio import SocketIO  # type: ignore
+from loguru import logger
 
 from src import db
 from src.aliases import Aliases
@@ -14,6 +14,7 @@ from src.config import Config
 from src.data import DataHandler
 from src.downloader import Downloader
 from src.spotify import SpotifyHandler
+from src.status import DownloadStatus
 
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_mapping(
@@ -56,8 +57,10 @@ def download(data):
     Downloads the data from the Spotify link
     """
     try:
+        logger.warning(f"Download Request: {data}")
         downloader.stop_downloading_event.clear()
         if not data_handler.monitor_active_flag:
+            logger.debug(f"Monitor Active Flag: {data_handler.monitor_active_flag}")
             data_handler.stop_monitoring_event.clear()
             thread = threading.Thread(target=data_handler.monitor, args=(socketio,))
             thread.daemon = True
@@ -66,13 +69,16 @@ def download(data):
 
         link = data["Link"]
         ret = spotify_handler.spotify_extractor(link)
-        if data_handler.status == "Complete":
+        if downloader.status == DownloadStatus.COMPLETE:
             downloader.download_list = []
         downloader.download_list.extend(ret)
+        logger.debug(f"Download List: {downloader.download_list}")
+        logger.debug(f"Status: {downloader.status}")
 
-        if data_handler.status != "Running":
-            data_handler.index = 0
-            data_handler.status = "Running"
+        if downloader.status != DownloadStatus.RUNNING:
+            logger.debug("Resetting Downloader")
+            downloader.index = 0
+            downloader.status = DownloadStatus.RUNNING
             thread = threading.Thread(target=downloader.master_queue)
             thread.daemon = True
             thread.start()
@@ -80,11 +86,22 @@ def download(data):
         ret = {"Status": "Success"}
 
     except Exception as e:
-        data_handler.logger.error("Error Handling Download Request from UI: %s", str(e))
+        logger.error(f"Error Handling Download Request from UI: {str(e)}")
         ret = {"Status": "Error", "Data": str(e)}
 
     finally:
         socketio.emit("download", ret)
+
+
+@socketio.on("remove_track")
+def remove_track(index: int):
+    """
+    Remove a track from the download list
+    """
+    logger.warning(f"Remove Track Request: {index}")
+    downloader.download_list.pop(index)
+    ret = {"Status": "Success"}
+    socketio.emit("remove_track", ret)
 
 
 @socketio.on("connect")
@@ -138,7 +155,7 @@ def clear():
     """
     Clears the download list and cancels all futures
     """
-    data_handler.logger.warning("Clear List Request")
+    logger.warning("Clear List Request")
     downloader.stop_downloading_event.set()
     for future in downloader.futures:
         if not future.done():
@@ -152,11 +169,17 @@ def setup_logging():
     """
     Sets up the logging for the application
     """
-    logging.basicConfig(
-        level=logging.WARNING,
-        format="%(asctime)s %(message)s",
+    is_debug = os.environ.get("DEBUG", "False").lower() == "true"
+    if not is_debug:
+        level = os.environ.get("LOG_LEVEL", "INFO")
+    else:
+        level = "DEBUG"
+    logger.add(
+        sys.stdout,
+        colorize=True,
+        format="[%(asctime)s] [%(levelname)s] %(message)s",
         datefmt="%d/%m/%Y %H:%M:%S",
-        handlers=[logging.StreamHandler(sys.stdout)],
+        level=level,
     )
 
 
@@ -164,4 +187,5 @@ if __name__ == "__main__":
     setup_logging()
     load_dotenv()
     port = int(os.environ.get("PORT", 5000))
-    socketio.run(app, host="0.0.0.0", port=port)
+    debug = os.environ.get("DEBUG", "False").lower() == "true"
+    socketio.run(app, host="0.0.0.0", port=port, debug=debug)

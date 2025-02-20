@@ -96,15 +96,18 @@ save_changes_button.addEventListener("click", () => {
 
 socket.on("progress_status", (response) => {
   progress_table.innerHTML = "";
-  response.Data.forEach(function (item) {
+  response.Data.forEach(function (item, index) {
     var row = progress_table.insertRow();
     var cellArtist = row.insertCell(0);
     var cellTitle = row.insertCell(1);
     var cellStatus = row.insertCell(2);
+    var cellActions = row.insertCell(3);
 
     cellArtist.innerHTML = item.Artist;
     cellTitle.innerHTML = item.Title;
     cellStatus.innerHTML = item.Status;
+    console.log(index);
+    cellActions.innerHTML = `<button class="btn btn-danger" onclick="socket.emit('remove_track', ${index})">Remove</button>`;
   });
   var percent_completion = response.Percent_Completion;
   var actual_status = response.Status;

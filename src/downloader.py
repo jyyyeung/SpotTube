@@ -1,11 +1,11 @@
 import concurrent.futures
-import logging
 import os
 import tempfile
 import threading
 from dataclasses import dataclass, field
 
 import yt_dlp  # type: ignore
+from loguru import logger
 from thefuzz import fuzz  # type: ignore
 from ytmusicapi import YTMusic  # type: ignore
 
@@ -14,7 +14,6 @@ from src.config import Config
 from src.status import DownloadStatus
 from src.utils import string_cleaner
 
-logger = logging.getLogger(__name__)
 config = Config()
 
 
@@ -106,13 +105,9 @@ class Downloader:
                 self._download_song(song, found_link)
             else:
                 song["Status"] = DownloadStatus.NO_LINK_FOUND
-                logger.warning(
-                    "No Link Found for: %s - %s", song["Artist"], song["Title"]
-                )
+                logger.warning(f"No Link Found for: {song['Artist']} - {song['Title']}")
         except Exception as e:
-            logger.error(
-                "Error downloading song: %s. Error message: %s", song["Title"], e
-            )
+            logger.error(f"Error downloading song: {song['Title']}. Error message: {e}")
             song["Status"] = DownloadStatus.SEARCH_FAILED
         finally:
             self.index += 1
@@ -255,9 +250,7 @@ class Downloader:
 
         if os.path.exists(full_file_path):
             song["Status"] = DownloadStatus.FILE_ALREADY_EXISTS
-            logger.warning(
-                "File Already Exists: %s - %s", song["Artist"], song["Title"]
-            )
+            logger.warning(f"File Already Exists: {song['Artist']} - {song['Title']}")
             return
 
         self._perform_download(song, found_link, file_name)
@@ -273,10 +266,10 @@ class Downloader:
             yt_downloader = yt_dlp.YoutubeDL(ydl_opts)
             yt_downloader.download([found_link])
             song["Status"] = DownloadStatus.PROCESSING_COMPLETE
-            logger.warning("yt_dl Complete: %s", found_link)
+            logger.warning(f"yt_dl Complete: {found_link}")
             self._stop_downloading_event.wait(config.sleep_interval)
         except Exception as e:
-            logger.error("Error downloading song: %s. Error message: %s", found_link, e)
+            logger.error(f"Error downloading song: {found_link}. Error message: {e}")
             song["Status"] = DownloadStatus.DOWNLOAD_FAILED
         finally:
             if temp_dir is not None:
@@ -342,10 +335,7 @@ class Downloader:
             song (dict): The song to download
         """
         logger.warning(
-            "Downloaded %s of %s at %s",
-            d["_percent_str"],
-            d["_total_bytes_str"],
-            d["_speed_str"],
+            f"Downloaded {d['_percent_str']} of {d['_total_bytes_str']} at {d['_speed_str']}"
         )
         percent_str = d["_percent_str"].replace("%", "").strip()
         song["Status"] = f"{percent_str}% Downloaded"
@@ -355,6 +345,10 @@ class Downloader:
         Master queue for the downloader
         """
         try:
+            logger.debug("Master Queue Started")
+            logger.debug(
+                f"Download status: {self.status}, stop downloading event: {self.stop_downloading_event.is_set()}"
+            )
             self.running_flag = True
             while not self.stop_downloading_event.is_set() and self.index < len(
                 self.download_list
@@ -371,7 +365,7 @@ class Downloader:
                 "Finished" if not self.stop_downloading_event.is_set() else "Stopped"
             )
         except Exception as e:
-            logger.error("Error in Master Queue: %s", str(e))
+            logger.error(f"Error in Master Queue: {str(e)}")
             self._status = DownloadStatus.ERROR
             self.running_flag = False
 
@@ -388,7 +382,7 @@ class Downloader:
                 if self.stop_downloading_event.is_set():
                     break
                 logger.warning(
-                    "Searching for Song: %s - %s", song["Title"], song["Artist"]
+                    f"Searching for Song: {song['Title']} - {song['Artist']}"
                 )
                 self.futures.append(
                     executor.submit(self.find_youtube_link_and_download, song)

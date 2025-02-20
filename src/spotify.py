@@ -1,6 +1,5 @@
-import logging
-
 import spotipy  # type: ignore
+from loguru import logger
 from spotipy.oauth2 import SpotifyClientCredentials  # type: ignore
 from spotipy_anon import SpotifyAnon  # type: ignore
 
@@ -21,7 +20,6 @@ class SpotifyHandler:
             )
         )
         self.sp_anon = spotipy.Spotify(auth_manager=SpotifyAnon())
-        self.logger = logging.getLogger(__name__)
         self.unique_tracks = set()
 
     def spotify_extractor(self, link):
@@ -111,7 +109,7 @@ class SpotifyHandler:
                 return sorted_tracks
 
             except Exception as e:
-                self.logger.error("Error fetching artist's top tracks: %s", str(e))
+                logger.error(f"Error fetching artist's top tracks: {str(e)}")
                 return []
 
         while True:
@@ -128,7 +126,7 @@ class SpotifyHandler:
                 offset += limit
 
             except Exception as e:
-                self.logger.error("Error fetching artist's albums: %s", str(e))
+                logger.error(f"Error fetching artist's albums: {str(e)}")
                 break
 
         for album in artist_albums:
@@ -177,9 +175,7 @@ class SpotifyHandler:
                     pass
 
         except Exception as e:
-            self.logger.error(
-                "Error parsing track from album %s: %s", album_name, str(e)
-            )
+            logger.error(f"Error parsing track from album {album_name}: {str(e)}")
         return track_list
 
     def _extract_tracks_from_track(self, link):
@@ -225,9 +221,7 @@ class SpotifyHandler:
                 )
 
             except Exception as e:
-                self.logger.error(
-                    "Error Parsing Item in Album: %s - %s", str(item), str(e)
-                )
+                logger.error(f"Error Parsing Item in Album: {str(item)} - {str(e)}")
 
         return track_list
 
@@ -240,10 +234,8 @@ class SpotifyHandler:
             playlist = self.sp.playlist(link)
 
         except Exception as e:
-            self.logger.error(
-                "Error using authenticated account to get playlist: %s.", str(e)
-            )
-            self.logger.info("Attempting to use anonymous authentication...")
+            logger.error(f"Error using authenticated account to get playlist: {str(e)}")
+            logger.info("Attempting to use anonymous authentication...")
             playlist = self.sp_anon.playlist(link)
 
         playlist_name = playlist["name"]
@@ -261,10 +253,10 @@ class SpotifyHandler:
                 )
 
             except Exception as e:
-                self.logger.error(
-                    "Error using authenticated account to get playlist: %s.", str(e)
+                logger.error(
+                    f"Error using authenticated account to get playlist: {str(e)}"
                 )
-                self.logger.info("Attempting to use anonymous authentication...")
+                logger.info("Attempting to use anonymous authentication...")
                 results = self.sp_anon.playlist_items(
                     link, fields=fields, limit=limit, offset=offset
                 )
@@ -289,8 +281,6 @@ class SpotifyHandler:
                 )
 
             except Exception as e:
-                self.logger.error(
-                    "Error Parsing Item in Playlist: %s - %s", str(item), str(e)
-                )
+                logger.error(f"Error Parsing Item in Playlist: {str(item)} - {str(e)}")
 
         return track_list
