@@ -4,12 +4,13 @@ import sys
 import threading
 
 from dotenv import load_dotenv
-
 from flask import Flask, render_template
 from flask_socketio import SocketIO  # type: ignore
-from src.spotify import SpotifyHandler
+
+from src.config import Config
 from src.data import DataHandler
 from src.downloader import Downloader
+from src.spotify import SpotifyHandler
 
 app = Flask(__name__)
 app.secret_key = "secret_key"
@@ -18,6 +19,7 @@ socketio = SocketIO(app)
 spotify_handler = SpotifyHandler()
 downloader = Downloader()
 data_handler = DataHandler(downloader)
+config = Config()
 
 
 @app.route("/")
@@ -47,6 +49,7 @@ def download(data):
         if data_handler.status == "Complete":
             data_handler.download_list = []
         data_handler.download_list.extend(ret)
+
         if data_handler.status != "Running":
             data_handler.index = 0
             data_handler.status = "Running"
@@ -83,9 +86,9 @@ def load_settings():
     Loads the settings for the data handler
     """
     data = {
-        "spotify_client_id": data_handler.spotify_client_id,
-        "spotify_client_secret": data_handler.spotify_client_secret,
-        "sleep_interval": data_handler.sleep_interval,
+        "spotify_client_id": config.spotify_client_id,
+        "spotify_client_secret": config.spotify_client_secret,
+        "sleep_interval": config.sleep_interval,
     }
     socketio.emit("settingsLoaded", data)
 
@@ -95,9 +98,9 @@ def update_settings(data):
     """
     Updates the settings for the data handler
     """
-    data_handler.spotify_client_id = data["spotify_client_id"]
-    data_handler.spotify_client_secret = data["spotify_client_secret"]
-    data_handler.sleep_interval = int(data["sleep_interval"])
+    config.spotify_client_id = data["spotify_client_id"]
+    config.spotify_client_secret = data["spotify_client_secret"]
+    config.sleep_interval = int(data["sleep_interval"])
 
 
 @socketio.on("disconnect")

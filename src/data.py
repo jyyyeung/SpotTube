@@ -1,11 +1,13 @@
-import os
-import logging
-from dataclasses import dataclass
-import threading
 import concurrent.futures
+import logging
+import os
+import threading
+from dataclasses import dataclass
+
 from flask_socketio import SocketIO  # type: ignore
-from src.downloader import Downloader
+
 from src.config import Config
+from src.downloader import Downloader
 from src.status import DownloadStatus
 
 
@@ -17,7 +19,7 @@ class DataHandler:
 
     logger: logging.Logger
     percent_completion: int | float
-    futures: list[concurrent.futures.Future]
+    _futures: list[concurrent.futures.Future]
     stop_downloading_event: threading.Event
     stop_monitoring_event: threading.Event
     monitor_active_flag: bool
@@ -51,11 +53,26 @@ class DataHandler:
         self.reset()
 
     @property
+    def futures(self) -> list[concurrent.futures.Future]:
+        """
+        Get the futures
+        """
+        return self._futures
+
+    @futures.setter
+    def futures(self, value: list[concurrent.futures.Future]):
+        self._futures = value
+
+    @property
     def download_list(self) -> list[dict]:
         """
         Get the download list
         """
         return self.downloader.download_list
+
+    @download_list.setter
+    def download_list(self, value: list[dict]):
+        self.downloader.download_list = value
 
     @property
     def index(self) -> int:

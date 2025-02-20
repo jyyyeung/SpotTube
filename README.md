@@ -65,28 +65,29 @@ To utilize a cookies file with yt-dlp, follow these steps:
 
 * Python 3.12+
 * pip
-* virtualenv
+* pipenv
 * ffmpeg
 
 ### Setup
 
 ```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+pipenv install --dev
+# Install pre-commit hooks
+pipenv run pre-commit install -t pre-commit
+pipenv run pre-commit install -t pre-push
 ```
 
-Setup environment variables:
+Copy the `.env.example` file to `.env` and set the environment variables:
 
 ```bash
-export spotify_client_id=<your_spotify_client_id>
-export spotify_client_secret=<your_spotify_client_secret>
+cp .env.example .env
+# Edit the .env file
 ```
 
 Run the app:
 
 ```bash
-python src/SpotTube.py
+pipenv run gunicorn src.SpotTube:app -c gunicorn_config.py
 ```
 
 ## License

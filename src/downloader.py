@@ -1,19 +1,17 @@
-from enum import Enum
-import logging
-import threading
 import concurrent.futures
-from dataclasses import dataclass, field
-
-from ytmusicapi import YTMusic  # type: ignore
+import logging
 import os
 import tempfile
+import threading
+from dataclasses import dataclass, field
+
 import yt_dlp  # type: ignore
 from thefuzz import fuzz  # type: ignore
+from ytmusicapi import YTMusic  # type: ignore
 
 from src.config import Config
-from src.utils import string_cleaner
 from src.status import DownloadStatus
-
+from src.utils import string_cleaner
 
 logger = logging.getLogger(__name__)
 config = Config()
@@ -25,7 +23,6 @@ class Downloader:
     Downloader class for the application
     """
 
-    ytmusic: YTMusic
     index: int
     _stop_downloading_event: threading.Event
     running_flag: bool
@@ -35,7 +32,6 @@ class Downloader:
 
     def __init__(self):
         super().__init__()
-        self.ytmusic = YTMusic()
         self.index = 0
         self._download_list = []
         self._stop_downloading_event = threading.Event()
@@ -58,6 +54,10 @@ class Downloader:
         """
         return self._download_list
 
+    @download_list.setter
+    def download_list(self, value: list[dict]):
+        self._download_list = value
+
     @property
     def stop_downloading_event(self) -> threading.Event:
         """
@@ -73,6 +73,7 @@ class Downloader:
         """
         Finds the YouTube link and downloads the song
         """
+        ytmusic = YTMusic()
         try:
             artist = song["Artist"]
             title = song["Title"]
@@ -81,7 +82,7 @@ class Downloader:
             folder = song["Folder"]
 
             found_link = None
-            search_results = self.ytmusic.search(
+            search_results = ytmusic.search(
                 query=artist + " " + title, filter="songs", limit=5
             )
 
@@ -125,9 +126,7 @@ class Downloader:
                     )
 
                     # Search for Top result specifically
-                    top_search_results = self.ytmusic.search(
-                        query=cleaned_title, limit=5
-                    )
+                    top_search_results = ytmusic.search(query=cleaned_title, limit=5)
                     cleaned_youtube_title = string_cleaner(
                         top_search_results[0]["title"]
                     ).lower()

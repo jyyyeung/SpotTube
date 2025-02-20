@@ -1,6 +1,6 @@
 import logging
-import spotipy  # type: ignore
 
+import spotipy  # type: ignore
 from spotipy.oauth2 import SpotifyClientCredentials  # type: ignore
 from spotipy_anon import SpotifyAnon  # type: ignore
 
@@ -21,7 +21,6 @@ class SpotifyHandler:
             )
         )
         self.sp_anon = spotipy.Spotify(auth_manager=SpotifyAnon())
-        self.artist_track_selection = "top"
         self.logger = logging.getLogger(__name__)
         self.unique_tracks = set()
 
@@ -64,7 +63,7 @@ class SpotifyHandler:
         artist_info = self.sp.artist(link)
         artist_name = artist_info.get("name", "Unknown Artist")
 
-        if self.artist_track_selection == "top":
+        if self.config.artist_track_selection == "top":
             try:
                 top_tracks = self.sp.artist_top_tracks(link)
                 for item in top_tracks["tracks"]:
@@ -154,7 +153,7 @@ class SpotifyHandler:
         """
         track_list = []
         track_info = self.sp.track(link)
-        album_name = track_info["album"]["name"]
+        # album_name = track_info["album"]["name"]
         track_title = track_info["name"]
         artists = [artist["name"] for artist in track_info["artists"]]
         artists_str = ", ".join(artists)
