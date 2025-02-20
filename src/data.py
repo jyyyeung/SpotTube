@@ -1,4 +1,3 @@
-import concurrent.futures
 import logging
 import os
 import threading
@@ -19,15 +18,13 @@ class DataHandler:
 
     logger: logging.Logger
     percent_completion: int | float
-    _futures: list[concurrent.futures.Future]
-    stop_downloading_event: threading.Event
-    stop_monitoring_event: threading.Event
+    _stop_monitoring_event: threading.Event
     monitor_active_flag: bool
-    running_flag: bool
     downloader: Downloader
 
     def __init__(self, downloader: Downloader):
-        self.logger = logging.getLogger()
+        super().__init__()
+        self.logger = logging.getLogger(__name__)
         self.downloader = downloader
 
         app_name_text = os.path.basename(__file__).replace(".py", "")
@@ -37,14 +34,11 @@ class DataHandler:
         self.logger.warning("%s Version: %s", app_name_text, release_version)
         self.logger.warning("*" * 50)
 
+        self._stop_monitoring_event = threading.Event()
+        self._stop_monitoring_event.clear()
         self.percent_completion = 0
 
         config = Config()
-
-        if not os.path.exists(config.download_folder):
-            os.makedirs(config.download_folder)
-        if not os.path.exists(config.config_folder):
-            os.makedirs(config.config_folder)
 
         full_cookies_path = os.path.join(config.config_folder, "cookies.txt")
         self.cookies_path = (
@@ -53,26 +47,15 @@ class DataHandler:
         self.reset()
 
     @property
-    def futures(self) -> list[concurrent.futures.Future]:
+    def stop_monitoring_event(self) -> threading.Event:
         """
-        Get the futures
+        Get the stop monitoring event
         """
-        return self._futures
+        return self._stop_monitoring_event
 
-    @futures.setter
-    def futures(self, value: list[concurrent.futures.Future]):
-        self._futures = value
-
-    @property
-    def download_list(self) -> list[dict]:
-        """
-        Get the download list
-        """
-        return self.downloader.download_list
-
-    @download_list.setter
-    def download_list(self, value: list[dict]):
-        self.downloader.download_list = value
+    @stop_monitoring_event.setter
+    def stop_monitoring_event(self, value: threading.Event):
+        self._stop_monitoring_event = value
 
     @property
     def index(self) -> int:
@@ -100,18 +83,20 @@ class DataHandler:
         """
         Resets the data handler
         """
-        self.futures = []
-        self.stop_downloading_event = threading.Event()
-        self.stop_monitoring_event = threading.Event()
+        self.downloader.stop_downloading_event.clear()
+        self.stop_monitoring_event.clear()
         self.monitor_active_flag = False
         self.percent_completion = 0
-        self.running_flag = False
+        self.downloader.reset()
 
     def monitor(self, socketio: SocketIO):
         """
         Monitors the progress of the download
+
+        Args:
+            socketio (SocketIO): The socketio object
         """
-        download_list = self.download_list
+        download_list = self.downloader.download_list
         index = self.index
         status = self.status
         while not self.stop_monitoring_event.is_set():

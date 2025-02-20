@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class DownloadStatus(Enum):
+class DownloadStatus(str, Enum):
     """
     Enum for the download status
     """
@@ -18,3 +18,9 @@ class DownloadStatus(Enum):
     RUNNING = "Running"
     ERROR = "Error"
     UNKNOWN = "Unknown"
+
+    def __str__(self):
+        return self.value
+
+    def __repr__(self):
+        return self.value

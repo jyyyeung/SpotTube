@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 import sys
 import threading
 
@@ -7,19 +8,38 @@ from dotenv import load_dotenv
 from flask import Flask, render_template
 from flask_socketio import SocketIO  # type: ignore
 
+from src import db
+from src.aliases import Aliases
 from src.config import Config
 from src.data import DataHandler
 from src.downloader import Downloader
 from src.spotify import SpotifyHandler
 
-app = Flask(__name__)
-app.secret_key = "secret_key"
+app = Flask(__name__, instance_relative_config=True)
+app.config.from_mapping(
+    SECRET_KEY="dev",  # Should be a random string when in production
+    DATABASE=os.path.join(app.instance_path, "spottube.sqlite"),
+)
+
+# ensure the instance folder exists
+try:
+    os.makedirs(app.instance_path)
+except OSError:
+    pass
+
 socketio = SocketIO(app)
 
-spotify_handler = SpotifyHandler()
-downloader = Downloader()
-data_handler = DataHandler(downloader)
-config = Config()
+# Initialize everything within app context
+with app.app_context():
+    db.init_app(app)
+    aliases = Aliases()
+    aliases.import_from_file(pathlib.Path("files/aliases.yaml"))
+    print(aliases.aliases)
+
+    spotify_handler = SpotifyHandler()
+    downloader = Downloader(aliases)
+    data_handler = DataHandler(downloader)
+    config = Config()
 
 
 @app.route("/")
@@ -36,7 +56,7 @@ def download(data):
     Downloads the data from the Spotify link
     """
     try:
-        data_handler.stop_downloading_event.clear()
+        downloader.stop_downloading_event.clear()
         if not data_handler.monitor_active_flag:
             data_handler.stop_monitoring_event.clear()
             thread = threading.Thread(target=data_handler.monitor, args=(socketio,))
@@ -47,8 +67,8 @@ def download(data):
         link = data["Link"]
         ret = spotify_handler.spotify_extractor(link)
         if data_handler.status == "Complete":
-            data_handler.download_list = []
-        data_handler.download_list.extend(ret)
+            downloader.download_list = []
+        downloader.download_list.extend(ret)
 
         if data_handler.status != "Running":
             data_handler.index = 0
@@ -72,12 +92,13 @@ def connection():
     """
     Connects the client to the server
     """
-    if not data_handler.monitor_active_flag:
-        data_handler.stop_monitoring_event.clear()
-        thread = threading.Thread(target=data_handler.monitor, args=(socketio,))
-        thread.daemon = True
-        thread.start()
-        data_handler.monitor_active_flag = True
+    with app.app_context():
+        if not data_handler.monitor_active_flag:
+            data_handler.stop_monitoring_event.clear()
+            thread = threading.Thread(target=data_handler.monitor, args=(socketio,))
+            thread.daemon = True
+            thread.start()
+            data_handler.monitor_active_flag = True
 
 
 @socketio.on("loadSettings")
@@ -118,13 +139,13 @@ def clear():
     Clears the download list and cancels all futures
     """
     data_handler.logger.warning("Clear List Request")
-    data_handler.stop_downloading_event.set()
-    for future in data_handler.futures:
+    downloader.stop_downloading_event.set()
+    for future in downloader.futures:
         if not future.done():
             future.cancel()
-    if not data_handler.running_flag:
-        data_handler.download_list = []
-        data_handler.futures = []
+    if not downloader.running_flag:
+        downloader.download_list = []
+        downloader.futures = []
 
 
 def setup_logging():

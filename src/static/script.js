@@ -14,6 +14,11 @@ var progress_table = document
   .getElementsByTagName("tbody")[0];
 var socket = io();
 
+/**
+ * Update the progress bar
+ * @param {number} percentage - The percentage of the progress bar
+ * @param {string} status - The status of the progress bar
+ */
 function updateProgressBar(percentage, status) {
   progress_bar.style.width = percentage + "%";
   progress_bar.ariaValueNow = percentage + "%";

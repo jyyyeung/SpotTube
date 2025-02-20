@@ -26,7 +26,16 @@ class SpotifyHandler:
 
     def spotify_extractor(self, link):
         """
-        Extracts the data from the Spotify link
+        Extracts the tracks from the Spotify link
+
+        Examples:
+            >>> SpotifyHandler().spotify_extractor("https://open.spotify.com/artist/1234567890")
+
+        Args:
+            link (str): The Spotify Link to extract tracks from
+
+        Returns:
+            list[dict]: The list of tracks
         """
         if "artist" in link:
             return self._extract_tracks_from_artist(link)
@@ -42,7 +51,17 @@ class SpotifyHandler:
     def append_if_unique(self, track_info) -> bool:
         """
         Appends the track info to the track list if it is unique
+
+        Examples:
+            >>> SpotifyHandler().append_if_unique({"Artist": "Artist", "Title": "Title"})
+
+        Args:
+            track_info (dict): The track info to append
+
+        Returns:
+            bool: True if the track info was appended, False otherwise
         """
+        print(f"{track_info=}")
         if (
             track_info["Artist"],
             track_info["Title"],
@@ -54,6 +73,12 @@ class SpotifyHandler:
     def _extract_tracks_from_artist(self, link):
         """
         Extracts the tracks from the artist
+
+        Examples:
+            >>> SpotifyHandler()._extract_tracks_from_artist("artist_link")
+
+        Args:
+            link (str): The link to the artist
         """
         artist_albums = []
         track_list = []
@@ -116,6 +141,16 @@ class SpotifyHandler:
     def extract_tracks_from_artist_albums(self, album_id, artist_name):
         """
         Extracts the tracks from the artist's albums
+
+        Examples:
+            >>> SpotifyHandler().extract_tracks_from_artist_albums("album_id", "artist_name")
+
+        Args:
+            album_id (str): The ID of the album
+            artist_name (str): The name of the artist
+
+        Returns:
+            list[dict]: The list of tracks
         """
         track_list = []
         album_name = ""

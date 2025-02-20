@@ -33,6 +33,12 @@ class Config:
             "spotify_client_secret": os.environ.get("SPOTIFY_CLIENT_SECRET"),
         }
 
+    def __post_init__(self):
+        if not os.path.exists(self.download_folder):
+            os.makedirs(self.download_folder)
+        if not os.path.exists(self.config_folder):
+            os.makedirs(self.config_folder)
+
     @property
     def sleep_interval(self) -> int:
         """

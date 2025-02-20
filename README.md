@@ -84,6 +84,12 @@ cp .env.example .env
 # Edit the .env file
 ```
 
+Init the database:
+
+```bash
+pipenv run flask --app src.SpotTube init-db
+```
+
 Run the app:
 
 ```bash
