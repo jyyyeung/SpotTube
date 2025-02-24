@@ -15,7 +15,7 @@ class DownloadStatus(str, Enum):
     NO_LINK_FOUND = "No Link Found"
     STOPPED = "Stopped"
     COMPLETE = "Complete"
-    RUNNING = "Running"
+    RUNNING = "Running"  # Downloading
     ERROR = "Error"
     UNKNOWN = "Unknown"
 

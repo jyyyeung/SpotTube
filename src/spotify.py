@@ -1,10 +1,30 @@
 import spotipy  # type: ignore
 from loguru import logger
+from pydantic import BaseModel
 from spotipy.oauth2 import SpotifyClientCredentials  # type: ignore
 from spotipy_anon import SpotifyAnon  # type: ignore
 
 from src.config import Config
+from src.status import DownloadStatus
 from src.utils import contains_ignored_keywords
+
+
+class Track(BaseModel):
+    """
+    A class to represent a track
+    """
+
+    artist: str
+    title: str
+    folder: str
+    status: DownloadStatus = DownloadStatus.UNKNOWN
+    release_date: str | None = None
+    percent_downloaded: float = 0.0
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Track):
+            return False
+        return self.artist == other.artist and self.title == other.title
 
 
 class SpotifyHandler:
@@ -21,7 +41,7 @@ class SpotifyHandler:
             )
         )
         self.sp_anon = spotipy.Spotify(auth_manager=SpotifyAnon())
-        self.unique_tracks = set()
+        self.unique_tracks: set[Track] = set()
 
     def spotify_extractor(self, link):
         """
@@ -54,19 +74,19 @@ class SpotifyHandler:
 
         for track in tracks:
             # If track title contains any of the ignored keywords, remove it
-            if contains_ignored_keywords(track["Title"]):
+            if contains_ignored_keywords(track.title):
                 # TODO: Update track status to "Ignored"
-                logger.info(f"Removing track {track['Title']} due to ignored keywords")
+                logger.info(f"Removing track {track.title} due to ignored keywords")
                 tracks.remove(track)
 
         return tracks
 
-    def append_if_unique(self, track_info) -> bool:
+    def append_if_unique(self, track_info: Track) -> bool:
         """
         Appends the track info to the track list if it is unique
 
         Examples:
-            >>> SpotifyHandler().append_if_unique({"Artist": "Artist", "Title": "Title"})
+            >>> SpotifyHandler().append_if_unique(Track(artist="Artist", title="Title"))
 
         Args:
             track_info (dict): The track info to append
@@ -75,15 +95,12 @@ class SpotifyHandler:
             bool: True if the track info was appended, False otherwise
         """
         print(f"{track_info=}")
-        if (
-            track_info["Artist"],
-            track_info["Title"],
-        ) not in self.unique_tracks:
-            self.unique_tracks.add((track_info["Artist"], track_info["Title"]))
+        if track_info not in self.unique_tracks:
+            self.unique_tracks.add(track_info)
             return True
         return False
 
-    def _extract_tracks_from_artist(self, link):
+    def _extract_tracks_from_artist(self, link) -> list[Track]:
         """
         Extracts the tracks from the artist
 
@@ -93,8 +110,8 @@ class SpotifyHandler:
         Args:
             link (str): The link to the artist
         """
-        artist_albums = []
-        track_list = []
+        artist_albums: list[dict] = []
+        track_list: list[Track] = []
         offset = 0
         limit = 50
 
@@ -111,16 +128,18 @@ class SpotifyHandler:
                     release_date = item.get("album", {}).get(
                         "release_date", "Unknown Date"
                     )
-                    track_info = {
-                        "Artist": artists_str,
-                        "Title": track_title,
-                        "Status": "Queued",
-                        "Folder": artist_name,
-                        "ReleaseDate": release_date,
-                    }
+                    track_info = Track(
+                        artist=artists_str,
+                        title=track_title,
+                        status=DownloadStatus.QUEUED,
+                        folder=artist_name,
+                        release_date=release_date,
+                    )
                     if self.append_if_unique(track_info):
                         track_list.append(track_info)
-                sorted_tracks = sorted(track_list, key=lambda x: x["ReleaseDate"])
+                sorted_tracks = sorted(
+                    track_list, key=lambda x: x.release_date if x.release_date else ""
+                )
                 return sorted_tracks
 
             except Exception as e:
@@ -148,10 +167,12 @@ class SpotifyHandler:
             album_id = album["id"]
             self.extract_tracks_from_artist_albums(album_id, artist_name)
 
-        sorted_tracks = sorted(track_list, key=lambda x: x["ReleaseDate"])
+        sorted_tracks = sorted(
+            track_list, key=lambda x: x.release_date if x.release_date else ""
+        )
         return sorted_tracks
 
-    def extract_tracks_from_artist_albums(self, album_id, artist_name):
+    def extract_tracks_from_artist_albums(self, album_id, artist_name) -> list[Track]:
         """
         Extracts the tracks from the artist's albums
 
@@ -165,7 +186,7 @@ class SpotifyHandler:
         Returns:
             list[dict]: The list of tracks
         """
-        track_list = []
+        track_list: list[Track] = []
         album_name = ""
         try:
             album_info = self.sp.album(album_id)
@@ -177,13 +198,13 @@ class SpotifyHandler:
                 track_title = item["name"]
                 artists = [artist["name"] for artist in item["artists"]]
                 artists_str = ", ".join(artists)
-                track_info = {
-                    "Artist": artists_str,
-                    "Title": track_title,
-                    "Status": "Queued",
-                    "Folder": artist_name,
-                    "ReleaseDate": release_date,
-                }
+                track_info = Track(
+                    artist=artists_str,
+                    title=track_title,
+                    status=DownloadStatus.QUEUED,
+                    folder=artist_name,
+                    release_date=release_date,
+                )
                 if self.append_if_unique(track_info):
                     track_list.append(track_info)
                 else:
@@ -193,32 +214,32 @@ class SpotifyHandler:
             logger.error(f"Error parsing track from album {album_name}: {str(e)}")
         return track_list
 
-    def _extract_tracks_from_track(self, link):
+    def _extract_tracks_from_track(self, link) -> list[Track]:
         """
         Extracts the tracks from the track
         """
-        track_list = []
+        track_list: list[Track] = []
         track_info = self.sp.track(link)
         # album_name = track_info["album"]["name"]
         track_title = track_info["name"]
         artists = [artist["name"] for artist in track_info["artists"]]
         artists_str = ", ".join(artists)
         track_list.append(
-            {
-                "Artist": artists_str,
-                "Title": track_title,
-                "Status": "Queued",
-                "Folder": "",
-            }
+            Track(
+                artist=artists_str,
+                title=track_title,
+                status=DownloadStatus.QUEUED,
+                folder="",
+            )
         )
         return track_list
 
-    def _extract_tracks_from_album(self, link):
+    def _extract_tracks_from_album(self, link) -> list[Track]:
         """
         Extracts the tracks from the album
         """
         album_info = self.sp.album(link)
-        track_list = []
+        track_list: list[Track] = []
         album_name = album_info["name"]
         album = self.sp.album_tracks(link)
         for item in album["items"]:
@@ -227,12 +248,12 @@ class SpotifyHandler:
                 artists = [artist["name"] for artist in item["artists"]]
                 artists_str = ", ".join(artists)
                 track_list.append(
-                    {
-                        "Artist": artists_str,
-                        "Title": track_title,
-                        "Status": "Queued",
-                        "Folder": album_name,
-                    }
+                    Track(
+                        artist=artists_str,
+                        title=track_title,
+                        status=DownloadStatus.QUEUED,
+                        folder=album_name,
+                    )
                 )
 
             except Exception as e:
@@ -240,11 +261,11 @@ class SpotifyHandler:
 
         return track_list
 
-    def _extract_tracks_from_playlist(self, link):
+    def _extract_tracks_from_playlist(self, link) -> list[Track]:
         """
         Extracts the tracks from the playlist
         """
-        track_list = []
+        track_list: list[Track] = []
         try:
             playlist = self.sp.playlist(link)
 
@@ -287,12 +308,12 @@ class SpotifyHandler:
                 artists = [artist["name"] for artist in track["artists"]]
                 artists_str = ", ".join(artists)
                 track_list.append(
-                    {
-                        "Artist": artists_str,
-                        "Title": track_title,
-                        "Status": "Queued",
-                        "Folder": playlist_name,
-                    }
+                    Track(
+                        artist=artists_str,
+                        title=track_title,
+                        status=DownloadStatus.QUEUED,
+                        folder=playlist_name,
+                    )
                 )
 
             except Exception as e:

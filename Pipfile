@@ -46,6 +46,7 @@ ytmusicapi = "==1.10.1"
 pyyaml = "*"
 loguru = "*"
 stringpod = "*"
+pydantic = "*"
 
 [dev-packages]
 isort = "*"

@@ -11,6 +11,7 @@ from ytmusicapi import YTMusic  # type: ignore
 
 from src.aliases import Aliases
 from src.config import Config
+from src.spotify import Track
 from src.status import DownloadStatus
 from src.utils import string_cleaner
 
@@ -29,7 +30,7 @@ class Downloader:
     _stop_downloading_event: threading.Event = field(default_factory=threading.Event)
     running_flag: bool = False
     futures: list[concurrent.futures.Future] = field(default_factory=list)
-    _download_list: list[dict] = field(default_factory=list)
+    _download_list: list[Track] = field(default_factory=list)
     _status: DownloadStatus = DownloadStatus.UNKNOWN
 
     def __init__(self, aliases: Aliases):
@@ -37,9 +38,9 @@ class Downloader:
         self.aliases = aliases
         self._stop_downloading_event = threading.Event()
         self._stop_downloading_event.clear()
-        self._download_list = []
+        self._download_list: list[Track] = []
         self.running_flag = False
-        self.futures = []
+        self.futures: list[concurrent.futures.Future] = []
 
     def reset(self):
         """
@@ -66,17 +67,17 @@ class Downloader:
         self._status = value
 
     @property
-    def download_list(self) -> list[dict]:
+    def download_list(self) -> list[Track]:
         """
         Get the download list
 
         Returns:
-            list[dict]: The download list
+            list[Track]: The download list
         """
         return self._download_list
 
     @download_list.setter
-    def download_list(self, value: list[dict]):
+    def download_list(self, value: list[Track]):
         self._download_list = value
 
     @property
@@ -93,36 +94,39 @@ class Downloader:
     def stop_downloading_event(self, value: threading.Event):
         self._stop_downloading_event = value
 
-    def find_youtube_link_and_download(self, song):
+    def find_youtube_link_and_download(self, song: Track):
         """
         Find the YouTube link and download the song
 
         Args:
-            song (dict): The song to download
+            song (Track): The song to download
         """
         try:
             found_link = self._find_youtube_link(song)
             if found_link:
                 self._download_song(song, found_link)
             else:
-                song["Status"] = DownloadStatus.NO_LINK_FOUND
-                logger.warning(f"No Link Found for: {song['Artist']} - {song['Title']}")
+                song.status = DownloadStatus.NO_LINK_FOUND
+                logger.warning(f"No Link Found for: {song.artist} - {song.title}")
         except Exception as e:
-            logger.error(f"Error downloading song: {song['Title']}. Error message: {e}")
-            song["Status"] = DownloadStatus.SEARCH_FAILED
+            logger.error(f"Error downloading song: {song.title}. Error message: {e}")
+            song.status = DownloadStatus.SEARCH_FAILED
         finally:
             self.index += 1
 
-    def _find_youtube_link(self, song):
+    def _find_youtube_link(self, song: Track) -> str | None:
         """
         Find the YouTube link for the song
 
         Args:
-            song (dict): The song to download
+            song (Track): The song to download
+
+        Returns:
+            str | None: The YouTube link
         """
         ytmusic = YTMusic()
-        artist = song["Artist"]
-        title = song["Title"]
+        artist = song.artist
+        title = song.title
         cleaned_artist = self._clean_artist_name(artist)
         cleaned_title = string_cleaner(title).lower()
 
@@ -138,7 +142,7 @@ class Downloader:
 
         return found_link
 
-    def _clean_artist_name(self, artist):
+    def _clean_artist_name(self, artist: str) -> str:
         """
         Clean the artist name
 
@@ -151,13 +155,18 @@ class Downloader:
         return string_cleaner(self.aliases.get_name(artist)).lower()
 
     def _search_for_link_in_results(
-        self, search_results, cleaned_artist, cleaned_title
-    ):
+        self, search_results: list[dict], cleaned_artist: str, cleaned_title: str
+    ) -> str | None:
         """
         Search for a link in the search results
 
         Args:
             search_results (list): The search results
+            cleaned_artist (str): The cleaned artist name
+            cleaned_title (str): The cleaned title
+
+        Returns:
+            str | None: The found link
         """
         for item in search_results:
             cleaned_youtube_title = string_cleaner(item["title"]).lower()
@@ -171,7 +180,7 @@ class Downloader:
         return None
 
     def _is_matching_artist_and_title(
-        self, item, cleaned_artist, cleaned_title
+        self, item: dict, cleaned_artist: str, cleaned_title: str
     ) -> bool:
         """
         Check if the item is a matching artist and title
@@ -192,13 +201,19 @@ class Downloader:
         artist_ratio = fuzz.ratio(cleaned_artist, cleaned_youtube_artists)
         return title_ratio >= 90 and artist_ratio >= 90
 
-    def _search_top_result(self, ytmusic, cleaned_title, cleaned_artist):
+    def _search_top_result(
+        self, ytmusic: YTMusic, cleaned_title: str, cleaned_artist: str
+    ) -> str | None:
         """
         Search for the top result
 
         Args:
             ytmusic (YTMusic): The YouTube music object
             cleaned_title (str): The cleaned title
+            cleaned_artist (str): The cleaned artist name
+
+        Returns:
+            str | None: The found link
         """
         top_search_results = ytmusic.search(query=cleaned_title, limit=5)
         if top_search_results:
@@ -207,7 +222,9 @@ class Downloader:
             )
         return None
 
-    def _evaluate_top_result(self, top_result, cleaned_artist, cleaned_title):
+    def _evaluate_top_result(
+        self, top_result: dict, cleaned_artist: str, cleaned_title: str
+    ) -> str | None:
         """
         Evaluate the top result
 
@@ -232,31 +249,31 @@ class Downloader:
             return f"https://www.youtube.com/watch?v={top_result['videoId']}"
         return None
 
-    def _download_song(self, song, found_link):
+    def _download_song(self, song: Track, found_link: str):
         """
         Download the song
 
         Args:
-            song (dict): The song to download
+            song (Track): The song to download
             found_link (str): The found link
         """
-        folder = song["Folder"]
-        cleaned_artist_name = self.aliases.get_name(song["Artist"])
+        folder = song.folder
+        cleaned_artist_name = self.aliases.get_name(song.artist)
         file_name = os.path.join(
             string_cleaner(folder),
-            f"{string_cleaner(song['Title'])} - {string_cleaner(cleaned_artist_name)}",
+            f"{string_cleaner(song.title)} - {string_cleaner(cleaned_artist_name)}",
         )
         download_folder = config.download_folder
         full_file_path = os.path.join(download_folder, f"{file_name}.mp3")
 
         if os.path.exists(full_file_path):
-            song["Status"] = DownloadStatus.FILE_ALREADY_EXISTS
-            logger.warning(f"File Already Exists: {song['Artist']} - {song['Title']}")
+            song.status = DownloadStatus.FILE_ALREADY_EXISTS
+            logger.warning(f"File Already Exists: {song.artist} - {song.title}")
             return
 
         self._perform_download(song, found_link, file_name)
 
-    def _perform_download(self, song, found_link, file_name):
+    def _perform_download(self, song: Track, found_link: str, file_name: str):
         """
         Perform the actual download of the song
         """
@@ -266,17 +283,19 @@ class Downloader:
             ydl_opts = self._get_ydl_options(file_name, temp_dir, song)
             yt_downloader = yt_dlp.YoutubeDL(ydl_opts)
             yt_downloader.download([found_link])
-            song["Status"] = DownloadStatus.PROCESSING_COMPLETE
+            song.status = DownloadStatus.PROCESSING_COMPLETE
             logger.warning(f"yt_dl Complete: {found_link}")
             self._stop_downloading_event.wait(config.sleep_interval)
         except Exception as e:
             logger.error(f"Error downloading song: {found_link}. Error message: {e}")
-            song["Status"] = DownloadStatus.DOWNLOAD_FAILED
+            song.status = DownloadStatus.DOWNLOAD_FAILED
         finally:
             if temp_dir is not None:
                 temp_dir.cleanup()
 
-    def _get_ydl_options(self, file_name, temp_dir, song):
+    def _get_ydl_options(
+        self, file_name: str, temp_dir: tempfile.TemporaryDirectory, song: Track
+    ) -> dict:
         """
         Get the ydl options
 
@@ -312,7 +331,7 @@ class Downloader:
             ],
         }
 
-    def progress_callback(self, d, song):
+    def progress_callback(self, d, song: Track):
         """
         Progress callback for the download
 
@@ -327,7 +346,7 @@ class Downloader:
         elif d["status"] == "downloading":
             self._log_progress(d, song)
 
-    def _log_progress(self, d, song):
+    def _log_progress(self, d: dict, song: Track):
         """
         Log the progress
 
@@ -339,7 +358,11 @@ class Downloader:
             f"Downloaded {d['_percent_str']} of {d['_total_bytes_str']} at {d['_speed_str']}"
         )
         percent_str = d["_percent_str"].replace("%", "").strip()
-        song["Status"] = f"{percent_str}% Downloaded"
+        try:
+            song.percent_downloaded = float(percent_str)
+            song.status = DownloadStatus.RUNNING
+        except ValueError:
+            song.percent_downloaded = 0.0
 
     def master_queue(self):
         """
@@ -382,9 +405,7 @@ class Downloader:
             for song in self.download_list[start_position:]:
                 if self.stop_downloading_event.is_set():
                     break
-                logger.warning(
-                    f"Searching for Song: {song['Title']} - {song['Artist']}"
-                )
+                logger.warning(f"Searching for Song: {song.title} - {song.artist}")
                 self.futures.append(
                     executor.submit(self.find_youtube_link_and_download, song)
                 )

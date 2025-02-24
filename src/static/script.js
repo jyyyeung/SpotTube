@@ -100,11 +100,15 @@ save_changes_button.addEventListener("click", () => {
 
 socket.on("progress_status", (response) => {
   progress_table.innerHTML = "";
-  response.Data.forEach((item, index) => {
+  response.data.forEach((item, index) => {
     const row = progress_table.insertRow();
-    const cells = ["Artist", "Title", "Status"].map((key) => {
+    const cells = ["artist", "title", "status"].map((key) => {
       const cell = row.insertCell();
-      cell.textContent = item[key];
+      if (key === "status" && item[key] === "Running") {
+        cell.textContent = `${item[key]} (${item.percent_downloaded}%)`;
+      } else {
+        cell.textContent = item[key];
+      }
       return cell;
     });
 
@@ -113,14 +117,14 @@ socket.on("progress_status", (response) => {
       <button 
         class="btn btn-danger" 
         onclick="socket.emit('remove_track', ${index})"
-        aria-label="Remove ${item.Title}"
+        aria-label="Remove ${item.title}"
       >
         Remove
       </button>
     `;
   });
 
-  updateProgressBar(response.Percent_Completion, response.Status);
+  updateProgressBar(response.percent_completion, response.status);
 });
 
 const themeSwitch = document.getElementById("themeSwitch");

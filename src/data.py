@@ -16,7 +16,6 @@ class DataHandler:
     Data handler for the download
     """
 
-    percent_completion: int | float
     _stop_monitoring_event: threading.Event
     monitor_active_flag: bool
     downloader: Downloader
@@ -34,7 +33,6 @@ class DataHandler:
 
         self._stop_monitoring_event = threading.Event()
         self._stop_monitoring_event.clear()
-        self.percent_completion = 0
 
         config = Config()
 
@@ -84,7 +82,6 @@ class DataHandler:
         self.downloader.stop_downloading_event.clear()
         self.stop_monitoring_event.clear()
         self.monitor_active_flag = False
-        self.percent_completion = 0
         self.downloader.reset()
 
     def monitor(self, socketio: SocketIO):
@@ -99,13 +96,14 @@ class DataHandler:
             index = self.index
             status = self.status
             download_list = self.downloader.download_list
-            self.percent_completion = (
+            percent_completion = (
                 100 * (index / len(download_list)) if download_list else 0
             )
+            download_list_dump = [track.model_dump() for track in download_list]
             custom_data = {
-                "Data": download_list,
-                "Status": status.value,
-                "Percent_Completion": self.percent_completion,
+                "data": download_list_dump,
+                "status": status.value,
+                "percent_completion": percent_completion,
             }
             logger.debug(f"Emitted update progress status: {custom_data}")
             socketio.emit("progress_status", custom_data)
