@@ -21,6 +21,7 @@ config = Config()
 class Downloader:
     """
     Downloader class for the application
+
     """
 
     aliases: Aliases

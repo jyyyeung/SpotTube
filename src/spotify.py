@@ -4,6 +4,7 @@ from spotipy.oauth2 import SpotifyClientCredentials  # type: ignore
 from spotipy_anon import SpotifyAnon  # type: ignore
 
 from src.config import Config
+from src.utils import contains_ignored_keywords
 
 
 class SpotifyHandler:
@@ -26,6 +27,8 @@ class SpotifyHandler:
         """
         Extracts the tracks from the Spotify link
 
+        If the track title contains any of the ignored keywords, it will be removed
+
         Examples:
             >>> SpotifyHandler().spotify_extractor("https://open.spotify.com/artist/1234567890")
 
@@ -35,16 +38,28 @@ class SpotifyHandler:
         Returns:
             list[dict]: The list of tracks
         """
+        tracks = []
+
         if "artist" in link:
-            return self._extract_tracks_from_artist(link)
+            tracks = self._extract_tracks_from_artist(link)
 
-        if "track" in link:
-            return self._extract_tracks_from_track(link)
+        elif "track" in link:
+            tracks = self._extract_tracks_from_track(link)
 
-        if "album" in link:
-            return self._extract_tracks_from_album(link)
+        elif "album" in link:
+            tracks = self._extract_tracks_from_album(link)
 
-        return self._extract_tracks_from_playlist(link)
+        elif "playlist" in link:
+            tracks = self._extract_tracks_from_playlist(link)
+
+        for track in tracks:
+            # If track title contains any of the ignored keywords, remove it
+            if contains_ignored_keywords(track["Title"]):
+                # TODO: Update track status to "Ignored"
+                logger.info(f"Removing track {track['Title']} due to ignored keywords")
+                tracks.remove(track)
+
+        return tracks
 
     def append_if_unique(self, track_info) -> bool:
         """
