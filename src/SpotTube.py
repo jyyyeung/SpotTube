@@ -18,7 +18,9 @@ from src.status import DownloadStatus
 
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_mapping(
-    SECRET_KEY="dev",  # Should be a random string when in production
+    SECRET_KEY=os.environ.get(
+        "SECRET_KEY", "dev"
+    ),  # Should be a random string when in production
     DATABASE=os.path.join(app.instance_path, "spottube.sqlite"),
 )
 
@@ -127,6 +129,7 @@ def load_settings():
         "spotify_client_id": config.spotify_client_id,
         "spotify_client_secret": config.spotify_client_secret,
         "sleep_interval": config.sleep_interval,
+        "ignored_keywords": config.ignored_keywords,
     }
     socketio.emit("settingsLoaded", data)
 
@@ -139,6 +142,8 @@ def update_settings(data):
     config.spotify_client_id = data["spotify_client_id"]
     config.spotify_client_secret = data["spotify_client_secret"]
     config.sleep_interval = int(data["sleep_interval"])
+    config.ignored_keywords = data["ignored_keywords"]
+    logger.debug(f"Updated Settings: {config.__dict__}")
 
 
 @socketio.on("disconnect")

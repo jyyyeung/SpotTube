@@ -20,26 +20,28 @@ var socket = io();
  * @param {string} status - The status of the progress bar
  */
 function updateProgressBar(percentage, status) {
-  progress_bar.style.width = percentage + "%";
-  progress_bar.ariaValueNow = percentage + "%";
-  progress_bar.classList.remove("progress-bar-striped");
-  progress_bar.classList.remove("progress-bar-animated");
+  const statusClasses = {
+    Running: "bg-success progress-bar-animated",
+    Stopped: "bg-danger",
+    Idle: "bg-primary",
+    Complete: "bg-dark",
+  };
 
-  if (status === "Running") {
-    progress_bar.classList.remove("bg-primary", "bg-danger", "bg-dark");
-    progress_bar.classList.add("bg-success");
-    progress_bar.classList.add("progress-bar-animated");
-  } else if (status === "Stopped") {
-    progress_bar.classList.remove("bg-primary", "bg-success", "bg-dark");
-    progress_bar.classList.add("bg-danger");
-  } else if (status === "Idle") {
-    progress_bar.classList.remove("bg-success", "bg-danger", "bg-dark");
-    progress_bar.classList.add("bg-primary");
-  } else if (status === "Complete") {
-    progress_bar.classList.remove("bg-primary", "bg-success", "bg-danger");
-    progress_bar.classList.add("bg-dark");
-  }
-  progress_bar.classList.add("progress-bar-striped");
+  progress_bar.style.width = `${percentage}%`;
+  progress_bar.ariaValueNow = `${percentage}`;
+
+  // Remove all possible status classes
+  progress_bar.classList.remove(
+    "bg-primary",
+    "bg-success",
+    "bg-danger",
+    "bg-dark",
+    "progress-bar-animated"
+  );
+
+  // Add new status class
+  const newClasses = statusClasses[status]?.split(" ") || [];
+  progress_bar.classList.add(...newClasses, "progress-bar-striped");
 }
 
 download_button.addEventListener("click", function () {
@@ -77,6 +79,7 @@ config_modal.addEventListener("show.bs.modal", function (event) {
     spotify_client_id.value = settings.spotify_client_id;
     spotify_client_secret.value = settings.spotify_client_secret;
     sleep_interval.value = settings.sleep_interval;
+    ignored_keywords.value = settings.ignored_keywords;
     socket.off("settingsLoaded", handleSettingsLoaded);
   }
   socket.on("settingsLoaded", handleSettingsLoaded);
@@ -87,6 +90,7 @@ save_changes_button.addEventListener("click", () => {
     spotify_client_id: spotify_client_id.value,
     spotify_client_secret: spotify_client_secret.value,
     sleep_interval: sleep_interval.value,
+    ignored_keywords: ignored_keywords.value,
   });
   save_message.style.display = "block";
   setTimeout(function () {
@@ -96,22 +100,27 @@ save_changes_button.addEventListener("click", () => {
 
 socket.on("progress_status", (response) => {
   progress_table.innerHTML = "";
-  response.Data.forEach(function (item, index) {
-    var row = progress_table.insertRow();
-    var cellArtist = row.insertCell(0);
-    var cellTitle = row.insertCell(1);
-    var cellStatus = row.insertCell(2);
-    var cellActions = row.insertCell(3);
+  response.Data.forEach((item, index) => {
+    const row = progress_table.insertRow();
+    const cells = ["Artist", "Title", "Status"].map((key) => {
+      const cell = row.insertCell();
+      cell.textContent = item[key];
+      return cell;
+    });
 
-    cellArtist.innerHTML = item.Artist;
-    cellTitle.innerHTML = item.Title;
-    cellStatus.innerHTML = item.Status;
-    console.log(index);
-    cellActions.innerHTML = `<button class="btn btn-danger" onclick="socket.emit('remove_track', ${index})">Remove</button>`;
+    const actionsCell = row.insertCell();
+    actionsCell.innerHTML = `
+      <button 
+        class="btn btn-danger" 
+        onclick="socket.emit('remove_track', ${index})"
+        aria-label="Remove ${item.Title}"
+      >
+        Remove
+      </button>
+    `;
   });
-  var percent_completion = response.Percent_Completion;
-  var actual_status = response.Status;
-  updateProgressBar(percent_completion, actual_status);
+
+  updateProgressBar(response.Percent_Completion, response.Status);
 });
 
 const themeSwitch = document.getElementById("themeSwitch");
@@ -126,15 +135,22 @@ if (savedTheme) {
   document.documentElement.setAttribute("data-bs-theme", savedTheme);
 }
 
-themeSwitch.addEventListener("click", () => {
-  if (document.documentElement.getAttribute("data-bs-theme") === "dark") {
-    document.documentElement.setAttribute("data-bs-theme", "light");
-  } else {
-    document.documentElement.setAttribute("data-bs-theme", "dark");
-  }
-  localStorage.setItem(
-    "theme",
-    document.documentElement.getAttribute("data-bs-theme")
-  );
+const initializeTheme = () => {
+  const theme = localStorage.getItem("theme") || "light";
+  const switchPosition = localStorage.getItem("switchPosition") === "true";
+
+  themeSwitch.checked = switchPosition;
+  document.documentElement.setAttribute("data-bs-theme", theme);
+};
+
+const toggleTheme = () => {
+  const currentTheme = document.documentElement.getAttribute("data-bs-theme");
+  const newTheme = currentTheme === "dark" ? "light" : "dark";
+
+  document.documentElement.setAttribute("data-bs-theme", newTheme);
+  localStorage.setItem("theme", newTheme);
   localStorage.setItem("switchPosition", themeSwitch.checked);
-});
+};
+
+initializeTheme();
+themeSwitch.addEventListener("click", toggleTheme);
