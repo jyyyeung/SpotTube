@@ -170,15 +170,24 @@ def clear():
         downloader.futures = []
 
 
+def is_debug():
+    """
+    Returns True if the application is running in debug mode
+    """
+    return os.environ.get("DEBUG", "False").lower() == "true"
+
+
 def setup_logging():
     """
     Sets up the logging for the application
     """
-    is_debug = os.environ.get("DEBUG", "False").lower() == "true"
-    if not is_debug:
-        level = os.environ.get("LOG_LEVEL", "INFO")
-    else:
+    if is_debug():
         level = "DEBUG"
+    else:
+        level = os.environ.get("LOG_LEVEL", "INFO")
+
+    print(f"Setting up logging with level: {level}")
+
     logger.add(
         sys.stdout,
         colorize=True,
@@ -189,8 +198,8 @@ def setup_logging():
 
 
 if __name__ == "__main__":
-    setup_logging()
     load_dotenv()
     port = int(os.environ.get("PORT", 5050))
-    debug = os.environ.get("DEBUG", "False").lower() == "true"
+    setup_logging()
+    debug = is_debug()
     socketio.run(app, host="0.0.0.0", port=port, debug=debug)
