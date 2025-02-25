@@ -24,19 +24,19 @@ app.config.from_mapping(
     DATABASE=os.path.join(app.instance_path, "spottube.sqlite"),
 )
 
-# ensure the instance folder exists
+socketio = SocketIO(app)
+
 try:
     os.makedirs(app.instance_path)
 except OSError:
     pass
 
-socketio = SocketIO(app)
-
 # Initialize everything within app context
 with app.app_context():
     db.init_app(app)
+    db.init_db()
     aliases = Aliases()
-    aliases.import_from_file(pathlib.Path("files/aliases.yaml"))
+    aliases.import_from_file(pathlib.Path("config/aliases.yaml"))
     print(aliases.aliases)
 
     spotify_handler = SpotifyHandler()
@@ -191,6 +191,6 @@ def setup_logging():
 if __name__ == "__main__":
     setup_logging()
     load_dotenv()
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 5050))
     debug = os.environ.get("DEBUG", "False").lower() == "true"
     socketio.run(app, host="0.0.0.0", port=port, debug=debug)

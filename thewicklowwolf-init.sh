@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo -e "\033[1;32mTheWicklowWolf\033[0m"
+# echo -e "\033[1;32mTheWicklowWolf\033[0m"
 echo -e "\033[1;34mSpotTube\033[0m"
 echo "Initializing app..."
 
@@ -20,11 +20,9 @@ _____________________________________
      __/  -'/  `-._ `\_\__           
     /    /-'`  `\   \  \-.\          
 _____________________________________
-Brought to you by TheWicklowWolf   
+Initially created by TheWicklowWolf   
+Forked by jyyyeung
 _____________________________________
-
-If you'd like to buy me a coffee:
-https://buymeacoffee.com/thewicklow
 
 EOF
 
@@ -50,12 +48,18 @@ echo "-----------------"
 
 # Create the required directories with the correct permissions
 echo "Setting up directories.."
-mkdir -p /spottube/downloads /spottube/config /spottube/cache
-chown -R ${PUID}:${PGID} /spottube
+mkdir -p /app/downloads /app/config /app/cache /app/instance
+chown -R ${PUID}:${PGID} /app
 
 # Set XDG_CACHE_HOME to use the cache directory
-export XDG_CACHE_HOME=/spottube/cache
+export XDG_CACHE_HOME=/app/cache
+
+# Copy the example environment file to the instance directory
+echo "Copying example environment file to the instance directory..."
+if [ ! -f /app/.env ]; then
+    cp .env.example /app/.env
+fi
 
 # Start the application with the specified user permissions
-echo "Running SpotTube..."
+echo "Running SpotTube $RELEASE_VERSION..."
 exec su-exec ${PUID}:${PGID} gunicorn src.SpotTube:app -c gunicorn_config.py

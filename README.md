@@ -22,11 +22,11 @@ services:
       - thread_limit=1
       - artist_track_selection=all
     volumes:
-      - /path/to/config:/spottube/config
-      - /data/media/spottube:/spottube/downloads
+      - /path/to/config:/app/config
+      - /data/media/spottube:/app/downloads
       - /etc/localtime:/etc/localtime:ro
     ports:
-      - 5000:5000
+      - 5050:5050
     restart: unless-stopped
 ```
 
@@ -82,12 +82,6 @@ Copy the `.env.example` file to `.env` and set the environment variables:
 ```bash
 cp .env.example .env
 # Edit the .env file
-```
-
-Init the database:
-
-```bash
-pipenv run flask --app src.SpotTube init-db
 ```
 
 Run the app:

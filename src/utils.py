@@ -1,3 +1,5 @@
+"""Utils for the application"""
+
 import re
 
 from stringpod import stringpod

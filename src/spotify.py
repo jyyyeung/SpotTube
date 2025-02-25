@@ -1,3 +1,5 @@
+"""Module to work with the Spotify API"""
+
 import spotipy  # type: ignore
 from loguru import logger
 from pydantic import BaseModel

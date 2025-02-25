@@ -1,0 +1,10 @@
+.env
+instance/
+downloads/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+.git/
+.gitignore
+.cache

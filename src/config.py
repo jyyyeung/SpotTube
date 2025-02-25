@@ -1,3 +1,5 @@
+"""Module to handle the configuration of the application"""
+
 import logging
 import os
 from dataclasses import dataclass, field
